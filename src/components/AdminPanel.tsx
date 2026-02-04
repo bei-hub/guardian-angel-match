@@ -10,7 +10,7 @@ import {
   saveData,
   clearData,
 } from "@/lib/wishGuardian";
-import { Users, Shuffle, Trash2, Check, ArrowLeft } from "lucide-react";
+import { Users, Shuffle, Trash2, Check, ArrowLeft, Eye, Gift, Loader2 } from "lucide-react";
 
 interface AdminPanelProps {
   data: WishGuardianData | null;
@@ -22,6 +22,8 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
   const [memberInput, setMemberInput] = useState(
     data?.members.join("\n") || ""
   );
+  const [showMatches, setShowMatches] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const parseMemberList = (input: string): string[] => {
     return input
@@ -30,7 +32,7 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
       .filter((name) => name.length > 0);
   };
 
-  const handleSaveMembers = () => {
+  const handleSaveMembers = async () => {
     const members = parseMemberList(memberInput);
     if (members.length < 2) {
       toast.error("至少需要输入2个成员");
@@ -44,6 +46,7 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
       return;
     }
 
+    setIsLoading(true);
     const newData: WishGuardianData = {
       members: uniqueMembers,
       matches: {},
@@ -51,17 +54,28 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
       createdAt: new Date().toISOString(),
     };
 
-    saveData(newData);
-    onDataChange(newData);
-    toast.success(`已保存 ${uniqueMembers.length} 位成员`);
+    try {
+      const serverSaved = await saveData(newData);
+      onDataChange(newData);
+      if (serverSaved) {
+        toast.success(`已保存 ${uniqueMembers.length} 位成员`);
+      } else {
+        toast.warning("已保存到本地，但同步到服务器失败。请检查服务是否运行。");
+      }
+    } catch (error) {
+      toast.error("保存失败");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleStartMatching = () => {
+  const handleStartMatching = async () => {
     if (!data || data.members.length < 2) {
       toast.error("请先保存成员名单");
       return;
     }
 
+    setIsLoading(true);
     try {
       const matches = generateMatches(data.members);
       const newData: WishGuardianData = {
@@ -69,19 +83,34 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
         matches,
         isMatchingComplete: true,
       };
-      saveData(newData);
+      const serverSaved = await saveData(newData);
       onDataChange(newData);
-      toast.success("配对成功！成员现在可以查看自己的守护对象了");
+      if (serverSaved) {
+        toast.success("配对成功！成员现在可以查看自己的守护对象了");
+      } else {
+        toast.warning("配对完成但同步服务器失败。请检查服务。");
+      }
     } catch (error) {
       toast.error("配对失败，请重试");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleReset = () => {
-    clearData();
-    setMemberInput("");
-    onDataChange(null);
-    toast.success("已重置所有数据");
+  const handleReset = async () => {
+    if (window.confirm("确定要重置所有数据吗？这将清除所有成员和配对信息。")) {
+      setIsLoading(true);
+      try {
+        await clearData();
+        setMemberInput("");
+        onDataChange(null);
+        toast.success("已重置所有数据");
+      } catch (error) {
+        toast.error("重置失败");
+      } finally {
+        setIsLoading(false);
+      }
+    }
   };
 
   const members = parseMemberList(memberInput);
@@ -91,6 +120,7 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
       <Button
         variant="ghost"
         onClick={onBack}
+        disabled={isLoading}
         className="mb-4 text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
@@ -115,6 +145,7 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
               value={memberInput}
               onChange={(e) => setMemberInput(e.target.value)}
               placeholder="张三&#10;李四&#10;王五&#10;..."
+              disabled={isLoading}
               className="min-h-[200px] resize-none bg-background/50 border-border/50 focus:border-primary/50"
             />
           </div>
@@ -136,24 +167,34 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <Button
               onClick={handleSaveMembers}
+              disabled={isLoading}
               className="flex-1 gradient-warm border-0 shadow-warm hover:shadow-warm-lg transition-all duration-300"
             >
-              <Check className="w-4 h-4 mr-2" />
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Check className="w-4 h-4 mr-2" />
+              )}
               保存名单
             </Button>
 
             <Button
               onClick={handleStartMatching}
-              disabled={!data || data.members.length < 2}
+              disabled={!data || data.members.length < 2 || isLoading}
               className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground shadow-warm"
             >
-              <Shuffle className="w-4 h-4 mr-2" />
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Shuffle className="w-4 h-4 mr-2" />
+              )}
               {data?.isMatchingComplete ? "重新配对" : "开始配对"}
             </Button>
 
             <Button
               variant="outline"
               onClick={handleReset}
+              disabled={isLoading}
               className="border-destructive/30 text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -163,26 +204,38 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
         </CardContent>
       </Card>
 
-      {data?.members && data.members.length > 0 && (
+      {data?.isMatchingComplete && (
         <Card className="shadow-warm border-0 bg-card/80 backdrop-blur-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg text-muted-foreground">
-              当前成员列表
+          <CardHeader className="pb-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-lg text-muted-foreground flex items-center gap-2">
+              <Gift className="w-4 h-4" />
+              配对结果
             </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowMatches(!showMatches)}
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              {showMatches ? "隐藏名单" : "查看名单"}
+            </Button>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {data.members.map((member, index) => (
-                <Badge
-                  key={index}
-                  variant="secondary"
-                  className="text-sm py-1.5 px-3"
-                >
-                  {member}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
+          {showMatches && (
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+                {data.members.map((member, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center p-3 bg-muted/50 rounded-lg border border-border/50"
+                  >
+                    <span className="font-medium text-muted-foreground">{member}</span>
+                    <span className="text-muted-foreground/50">→</span>
+                    <span className="font-bold text-primary">{data.matches[member]}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
     </div>

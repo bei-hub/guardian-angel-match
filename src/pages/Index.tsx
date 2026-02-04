@@ -26,7 +26,11 @@ const Index = () => {
   const [password, setPassword] = useState("");
 
   useEffect(() => {
-    setData(getStoredData());
+    const loadData = async () => {
+      const stored = await getStoredData();
+      setData(stored);
+    };
+    loadData();
   }, []);
 
   const handleDataChange = (newData: WishGuardianData | null) => {
@@ -95,76 +99,71 @@ const Index = () => {
         {/* 状态提示 */}
         {data && (
           <Card className="mb-6 border-0 shadow-warm bg-card/80 backdrop-blur-sm">
-            <CardContent className="py-4">
-              <div className="flex items-center justify-center gap-2 text-sm">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <span className="text-muted-foreground">
-                  已有 <span className="font-semibold text-foreground">{data.members.length}</span> 位成员
-                  {data.isMatchingComplete && (
-                    <span className="text-primary ml-1">· 配对已完成</span>
-                  )}
+            <CardContent className="py-2">
+              <div className="flex items-center justify-center gap-2 text-xs">
+                <Sparkles className="w-3 h-3 text-primary" />
+                <span className="font-medium text-foreground">
+                  当前已加入 {data.members.length} 位成员
                 </span>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* 入口按钮 */}
         <div className="space-y-4">
           <Button
             onClick={() => setViewMode("participant")}
-            size="lg"
             className="w-full h-14 text-lg gradient-warm border-0 shadow-warm hover:shadow-warm-lg transition-all duration-300"
           >
             <Users className="w-5 h-5 mr-2" />
-            我是参会人员
+            我是参与者
           </Button>
 
           <Button
+            variant="ghost"
             onClick={handleAdminAccess}
-            variant="outline"
-            size="lg"
-            className="w-full h-14 text-lg border-border/50 hover:border-primary/30 hover:bg-primary/5"
+            className="w-full h-12 text-muted-foreground hover:text-foreground hover:bg-muted/50"
           >
-            <Lock className="w-5 h-5 mr-2" />
+            <Settings className="w-4 h-4 mr-2" />
             管理员入口
           </Button>
         </div>
-
-        {/* 使用说明 */}
-        <div className="mt-10 text-sm text-muted-foreground space-y-2">
-          <p>💡 管理员先录入成员名单并开始配对</p>
-          <p>🎯 参会人员输入名字即可查看守护对象</p>
-        </div>
       </div>
 
-      {/* 管理员口令验证弹窗 */}
+      {/* 管理员密码对话框 */}
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Lock className="w-5 h-5 text-primary" />
-              管理员验证
-            </DialogTitle>
+            <DialogTitle>管理员验证</DialogTitle>
             <DialogDescription>
-              请输入管理员口令以继续
+              请输入管理员口令以进入后台管理
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="请输入口令"
-              className="text-center h-12"
-              onKeyDown={(e) => e.key === "Enter" && handlePasswordSubmit()}
-              autoFocus
-            />
+          <div className="flex items-center space-x-2 py-4">
+            <div className="relative w-full">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="password"
+                placeholder="请输入口令"
+                className="pl-9"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handlePasswordSubmit()}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
             <Button
-              onClick={handlePasswordSubmit}
-              className="w-full h-11 gradient-warm border-0 shadow-warm"
+              variant="ghost"
+              onClick={() => {
+                setShowPasswordDialog(false);
+                setPassword("");
+              }}
             >
-              确认进入
+              取消
+            </Button>
+            <Button onClick={handlePasswordSubmit} className="gradient-warm border-0">
+              确认
             </Button>
           </div>
         </DialogContent>

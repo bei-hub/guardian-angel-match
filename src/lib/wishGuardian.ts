@@ -2,14 +2,31 @@
 
 export interface WishGuardianData {
   members: string[];
+  // credentials?: Record<string, string>; // 已移除密码功能
   matches: Record<string, string>;
   isMatchingComplete: boolean;
   createdAt: string;
 }
 
 const STORAGE_KEY = 'wish-guardian-data';
+const USER_IDENTITY_KEY = 'wish-guardian-user-identity';
+const API_URL = '/api/data';
+const RESET_API_URL = '/api/reset';
 
-export function getStoredData(): WishGuardianData | null {
+export async function getStoredData(): Promise<WishGuardianData | null> {
+  // 优先尝试从服务器获取数据
+  try {
+    const res = await fetch(API_URL);
+    if (res.ok) {
+      const data = await res.json();
+      // 如果服务器有数据，直接返回；如果为 null，继续尝试本地存储（方便管理员恢复草稿）
+      if (data) return data;
+    }
+  } catch (e) {
+    console.warn("API不可用，尝试使用本地存储");
+  }
+
+  // 降级方案：使用 localStorage
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) return null;
   try {
@@ -19,12 +36,43 @@ export function getStoredData(): WishGuardianData | null {
   }
 }
 
-export function saveData(data: WishGuardianData): void {
+export async function saveData(data: WishGuardianData): Promise<boolean> {
+  let serverSaved = false;
+  // 优先尝试保存到服务器
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) serverSaved = true;
+  } catch (e) {
+    console.warn("API不可用，保存到本地存储");
+  }
+  
+  // 同时保存到本地作为备份
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  return serverSaved;
 }
 
-export function clearData(): void {
+export async function clearData(): Promise<void> {
+  try {
+    await fetch(RESET_API_URL, { method: 'POST' });
+  } catch (e) {
+    console.warn("API不可用，仅清除本地存储");
+  }
   localStorage.removeItem(STORAGE_KEY);
+  // 注意：我们不自动清除用户本地身份
+}
+
+// 获取本地存储的用户身份
+export function getLocalUserIdentity(): string | null {
+  return localStorage.getItem(USER_IDENTITY_KEY);
+}
+
+// 设置本地存储的用户身份
+export function setLocalUserIdentity(name: string): void {
+  localStorage.setItem(USER_IDENTITY_KEY, name.trim());
 }
 
 // Fisher-Yates shuffle algorithm
