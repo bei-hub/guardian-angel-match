@@ -1,16 +1,29 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { AdminPanel } from "@/components/AdminPanel";
 import { ParticipantPanel } from "@/components/ParticipantPanel";
 import { WishGuardianData, getStoredData } from "@/lib/wishGuardian";
-import { Heart, Settings, Users, Sparkles } from "lucide-react";
+import { Heart, Settings, Users, Sparkles, Lock } from "lucide-react";
+import { toast } from "sonner";
 
 type ViewMode = "home" | "admin" | "participant";
+
+const ADMIN_PASSWORD = "admin888"; // 管理员口令
 
 const Index = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("home");
   const [data, setData] = useState<WishGuardianData | null>(null);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     setData(getStoredData());
@@ -18,6 +31,20 @@ const Index = () => {
 
   const handleDataChange = (newData: WishGuardianData | null) => {
     setData(newData);
+  };
+
+  const handleAdminAccess = () => {
+    setShowPasswordDialog(true);
+  };
+
+  const handlePasswordSubmit = () => {
+    if (password === ADMIN_PASSWORD) {
+      setShowPasswordDialog(false);
+      setPassword("");
+      setViewMode("admin");
+    } else {
+      toast.error("口令错误，请重试");
+    }
   };
 
   if (viewMode === "admin") {
@@ -94,12 +121,12 @@ const Index = () => {
           </Button>
 
           <Button
-            onClick={() => setViewMode("admin")}
+            onClick={handleAdminAccess}
             variant="outline"
             size="lg"
             className="w-full h-14 text-lg border-border/50 hover:border-primary/30 hover:bg-primary/5"
           >
-            <Settings className="w-5 h-5 mr-2" />
+            <Lock className="w-5 h-5 mr-2" />
             管理员入口
           </Button>
         </div>
@@ -110,6 +137,38 @@ const Index = () => {
           <p>🎯 参会人员输入名字即可查看守护对象</p>
         </div>
       </div>
+
+      {/* 管理员口令验证弹窗 */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5 text-primary" />
+              管理员验证
+            </DialogTitle>
+            <DialogDescription>
+              请输入管理员口令以继续
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="请输入口令"
+              className="text-center h-12"
+              onKeyDown={(e) => e.key === "Enter" && handlePasswordSubmit()}
+              autoFocus
+            />
+            <Button
+              onClick={handlePasswordSubmit}
+              className="w-full h-11 gradient-warm border-0 shadow-warm"
+            >
+              确认进入
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
