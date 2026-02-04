@@ -11,22 +11,36 @@ export interface WishGuardianData {
 const STORAGE_KEY = 'wish-guardian-data';
 const USER_IDENTITY_KEY = 'wish-guardian-user-identity';
 const API_URL = '/api/data';
+const STATIC_DATA_URL = 'data.json'; // 静态数据文件路径 (相对于 base path)
 const RESET_API_URL = '/api/reset';
 
 export async function getStoredData(): Promise<WishGuardianData | null> {
-  // 优先尝试从服务器获取数据
+  // 1. 优先尝试从 API 服务器获取数据 (本地开发/部署模式)
   try {
     const res = await fetch(API_URL);
     if (res.ok) {
       const data = await res.json();
-      // 如果服务器有数据，直接返回；如果为 null，继续尝试本地存储（方便管理员恢复草稿）
       if (data) return data;
     }
   } catch (e) {
-    console.warn("API不可用，尝试使用本地存储");
+    // API 不可用，忽略
   }
 
-  // 降级方案：使用 localStorage
+  // 2. 尝试获取静态 JSON 数据 (GitHub Pages 模式)
+  try {
+    // 使用 import.meta.env.BASE_URL 确保路径正确
+    const baseUrl = import.meta.env.BASE_URL;
+    const url = baseUrl.endsWith('/') ? `${baseUrl}${STATIC_DATA_URL}` : `${baseUrl}/${STATIC_DATA_URL}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (data) return data;
+    }
+  } catch (e) {
+    console.warn("无法加载静态数据");
+  }
+
+  // 3. 降级方案：使用 localStorage
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) return null;
   try {
@@ -36,8 +50,9 @@ export async function getStoredData(): Promise<WishGuardianData | null> {
   }
 }
 
-export async function saveData(data: WishGuardianData): Promise<boolean> {
-  let serverSaved = false;
+export async function saveData(data: WishGuardianData): Promise<'server' | 'local' | 'static-error'> {
+  let saveStatus: 'server' | 'local' | 'static-error' = 'local';
+  
   // 优先尝试保存到服务器
   try {
     const res = await fetch(API_URL, {
@@ -45,14 +60,21 @@ export async function saveData(data: WishGuardianData): Promise<boolean> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (res.ok) serverSaved = true;
+    if (res.ok) {
+        saveStatus = 'server';
+    } else {
+        // 如果是 404/405 等错误，说明可能是静态环境
+        if (res.status === 404 || res.status === 405) {
+            saveStatus = 'static-error';
+        }
+    }
   } catch (e) {
     console.warn("API不可用，保存到本地存储");
   }
   
   // 同时保存到本地作为备份
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  return serverSaved;
+  return saveStatus;
 }
 
 export async function clearData(): Promise<void> {

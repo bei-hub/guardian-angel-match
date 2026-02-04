@@ -55,10 +55,19 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
     };
 
     try {
-      const serverSaved = await saveData(newData);
+      const saveStatus = await saveData(newData);
       onDataChange(newData);
-      if (serverSaved) {
-        toast.success(`已保存 ${uniqueMembers.length} 位成员`);
+      if (saveStatus === 'server') {
+        toast.success(`已保存 ${uniqueMembers.length} 位成员 (服务器已同步)`);
+      } else if (saveStatus === 'static-error') {
+         toast.warning("检测到静态网站模式，无法直接写入服务器。", {
+             description: "请下载 data.json 并手动提交到 GitHub 仓库的 public 目录。",
+             action: {
+                 label: "下载 JSON",
+                 onClick: () => downloadJson(newData)
+             },
+             duration: 10000,
+         });
       } else {
         toast.warning("已保存到本地，但同步到服务器失败。请检查服务是否运行。");
       }
@@ -83,10 +92,19 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
         matches,
         isMatchingComplete: true,
       };
-      const serverSaved = await saveData(newData);
+      const saveStatus = await saveData(newData);
       onDataChange(newData);
-      if (serverSaved) {
+      if (saveStatus === 'server') {
         toast.success("配对成功！成员现在可以查看自己的守护对象了");
+      } else if (saveStatus === 'static-error') {
+          toast.warning("配对成功 (本地模式)", {
+              description: "静态网站无法自动保存。请下载 JSON 文件并更新到 GitHub。",
+              action: {
+                  label: "下载 JSON",
+                  onClick: () => downloadJson(newData)
+              },
+              duration: 10000,
+          });
       } else {
         toast.warning("配对完成但同步服务器失败。请检查服务。");
       }
@@ -95,6 +113,18 @@ export function AdminPanel({ data, onDataChange, onBack }: AdminPanelProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const downloadJson = (data: WishGuardianData) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'data.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleReset = async () => {
