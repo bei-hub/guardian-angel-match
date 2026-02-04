@@ -14,7 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activity_members: {
+        Row: {
+          activity_id: string
+          created_at: string
+          id: string
+          name: string
+          target_member_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          id?: string
+          name: string
+          target_member_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          target_member_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_members_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "wish_activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_members_target_member_id_fkey"
+            columns: ["target_member_id"]
+            isOneToOne: false
+            referencedRelation: "activity_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wish_activities: {
+        Row: {
+          admin_password: string
+          created_at: string
+          id: string
+          is_matching_complete: boolean
+          name: string
+        }
+        Insert: {
+          admin_password: string
+          created_at?: string
+          id?: string
+          is_matching_complete?: boolean
+          name?: string
+        }
+        Update: {
+          admin_password?: string
+          created_at?: string
+          id?: string
+          is_matching_complete?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
